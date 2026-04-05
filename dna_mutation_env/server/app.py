@@ -108,9 +108,4 @@ def main(host: str = SETTINGS.host, port: int = SETTINGS.port):
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8000)
-    args = parser.parse_args()
-    main(port=args.port)
+    main()
