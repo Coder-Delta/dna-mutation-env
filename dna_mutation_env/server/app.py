@@ -44,7 +44,7 @@ try:
     from .config import SETTINGS
     from ..models import DnaMutationAction, DnaMutationObservation
     from .dna_mutation_env_environment import DnaMutationEnvironment
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     from server.config import SETTINGS
     from models import DnaMutationAction, DnaMutationObservation
     from server.dna_mutation_env_environment import DnaMutationEnvironment

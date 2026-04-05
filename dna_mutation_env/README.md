@@ -1,3 +1,13 @@
+---
+title: DNA Mutation Env
+emoji: "🧬"
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 8000
+pinned: false
+---
+
 # DNA Mutation Environment
 
 A production-oriented reinforcement learning environment built with `openenv-core` for sequence optimization tasks. The agent starts with a random DNA sequence and mutates it toward a target sequence, one position at a time.
