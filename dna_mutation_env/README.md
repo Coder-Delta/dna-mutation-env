@@ -1,6 +1,6 @@
 # DNA Mutation Environment
 
-A production-ready reinforcement learning environment built with `openenv-core` for sequence optimization tasks. The agent starts with a random DNA sequence and must mutate it into a target sequence, one position at a time.
+A production-oriented reinforcement learning environment built with `openenv-core` for sequence optimization tasks. The agent starts with a random DNA sequence and mutates it toward a target sequence, one position at a time.
 
 This project is designed for hackathon demos, RL experimentation, and lightweight bioinformatics workflows where discrete sequence editing is a natural action space.
 
@@ -8,8 +8,8 @@ This project is designed for hackathon demos, RL experimentation, and lightweigh
 
 At every episode reset, the environment generates:
 
-- a random 10-base `target_sequence`
-- a random 10-base `current_sequence`
+- a random `N`-base `target_sequence` (`N` is configurable)
+- a random `N`-base `current_sequence`
 
 On each step, the agent submits:
 
@@ -69,9 +69,11 @@ dna_mutation_env/
 |-- openenv.yaml
 |-- pyproject.toml
 |-- README.md
+|-- tests/
 |-- server/
 |   |-- __init__.py
 |   |-- app.py
+|   |-- config.py
 |   |-- dna_mutation_env_environment.py
 |   `-- Dockerfile
 `-- uv.lock
@@ -115,6 +117,7 @@ Available endpoints typically include:
 - `GET /state`
 - `GET /schema`
 - `GET /health`
+- `GET /ready`
 - `WS /ws`
 
 ## Quick Start
@@ -183,6 +186,25 @@ To test against a running server:
 python inference.py --base-url http://localhost:8000
 ```
 
+## Runtime Configuration
+
+Server behavior is configurable through environment variables:
+
+- `DNA_ENV_SEQUENCE_LENGTH` (default: `10`)
+- `DNA_ENV_MAX_STEPS` (default: `2 * sequence_length`)
+- `DNA_ENV_MAX_CONCURRENT_ENVS` (default: `8`)
+- `DNA_ENV_REVEAL_TARGET` (default: `true`)
+- `DNA_ENV_LOG_LEVEL` (default: `INFO`)
+- `DNA_ENV_HOST` (default: `0.0.0.0`)
+- `DNA_ENV_PORT` (default: `8000`)
+- `DNA_ENV_WORKERS` (default: `1`)
+
+Example:
+
+```bash
+DNA_ENV_SEQUENCE_LENGTH=20 DNA_ENV_REVEAL_TARGET=false uv run server
+```
+
 ## Docker Build
 
 Build the environment image from the `dna_mutation_env` directory:
@@ -239,6 +261,25 @@ The environment implementation lives in:
 The packaged client lives in:
 
 - `client.py`
+
+## Quality Gates
+
+Run checks locally:
+
+```bash
+cd dna_mutation_env
+pip install -e ".[dev]"
+ruff check .
+pytest
+```
+
+GitHub Actions CI runs lint and tests on Python 3.10-3.12 for every push/PR to `main`.
+
+## Security Notes
+
+- Keep secrets in local `.env` only; never commit `.env`.
+- Rotate any credential that was accidentally committed in the past.
+- For shared/public training settings, consider running with `DNA_ENV_REVEAL_TARGET=false`.
 
 ## License
 

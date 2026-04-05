@@ -18,7 +18,6 @@ class DnaMutationAction(Action):
     position: int = Field(
         ...,
         ge=0,
-        lt=10,
         description="Zero-based index in the DNA sequence to mutate.",
     )
     new_base: Literal["A", "T", "C", "G"] = Field(
@@ -37,20 +36,17 @@ class DnaMutationObservation(Observation):
 
     current_sequence: str = Field(
         ...,
-        min_length=10,
-        max_length=10,
+        min_length=1,
         description="The agent's current DNA sequence after the latest mutation.",
     )
     target_sequence: str = Field(
         ...,
-        min_length=10,
-        max_length=10,
+        min_length=0,
         description="The hidden target DNA sequence the agent is trying to match.",
     )
     distance: int = Field(
         ...,
         ge=0,
-        le=10,
         description="Hamming distance between the current and target sequences.",
     )
     reward: float = Field(

@@ -32,6 +32,8 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.0.0",
+    "httpx>=0.27.0",
+    "ruff>=0.6.0",
 ]
 
 [project.scripts]
@@ -43,3 +45,7 @@ server = "dna_mutation_env.server.app:main"
 include-package-data = true
 packages = ["dna_mutation_env", "dna_mutation_env.server"]
 package-dir = { "dna_mutation_env" = ".", "dna_mutation_env.server" = "server" }
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]

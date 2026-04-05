@@ -30,8 +30,12 @@ def run_local_demo(seed: int) -> None:
     print(f"Initial Distance: {observation.distance}")
     print()
 
-    for index in range(3):
-        target_base = observation.target_sequence[index]
+    for index in range(min(3, len(observation.current_sequence))):
+        target_base = (
+            observation.target_sequence[index]
+            if observation.target_sequence
+            else observation.current_sequence[index]
+        )
         observation = env.step(
             DnaMutationAction(
                 position=index,
@@ -65,7 +69,11 @@ def run_remote_demo(base_url: str, seed: int) -> None:
         print()
 
         for index in range(3):
-            target_base = observation.target_sequence[index]
+            target_base = (
+                observation.target_sequence[index]
+                if observation.target_sequence
+                else observation.current_sequence[index]
+            )
             result = client.step(
                 DnaMutationAction(
                     position=index,

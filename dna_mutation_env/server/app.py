@@ -28,6 +28,11 @@ Usage:
     python -m server.app
 """
 
+import logging
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
 try:
     from openenv.core.env_server.http_server import create_app
 except Exception as e:  # pragma: no cover
@@ -36,12 +41,19 @@ except Exception as e:  # pragma: no cover
     ) from e
 
 try:
+    from .config import SETTINGS
     from ..models import DnaMutationAction, DnaMutationObservation
     from .dna_mutation_env_environment import DnaMutationEnvironment
 except ModuleNotFoundError:
+    from server.config import SETTINGS
     from models import DnaMutationAction, DnaMutationObservation
     from server.dna_mutation_env_environment import DnaMutationEnvironment
 
+logging.basicConfig(
+    level=getattr(logging, SETTINGS.log_level),
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+LOGGER = logging.getLogger(__name__)
 
 # Create the app with web interface and README integration
 app = create_app(
@@ -49,11 +61,23 @@ app = create_app(
     DnaMutationAction,
     DnaMutationObservation,
     env_name="dna_mutation_env",
-    max_concurrent_envs=1,  # increase this number to allow more concurrent WebSocket sessions
+    max_concurrent_envs=SETTINGS.max_concurrent_envs,
 )
 
 
-def main(host: str = "0.0.0.0", port: int = 8000):
+@app.exception_handler(ValueError)
+async def value_error_handler(_: Request, exc: ValueError) -> JSONResponse:
+    """Convert environment input errors into clear client-facing responses."""
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.get("/ready")
+async def readiness() -> dict[str, str]:
+    """Readiness probe endpoint for orchestrators like Kubernetes."""
+    return {"status": "ready"}
+
+
+def main(host: str = SETTINGS.host, port: int = SETTINGS.port):
     """
     Entry point for direct execution via uv run or python -m.
 
@@ -72,7 +96,15 @@ def main(host: str = "0.0.0.0", port: int = 8000):
     """
     import uvicorn
 
-    uvicorn.run(app, host=host, port=port)
+    LOGGER.info(
+        "Starting dna_mutation_env host=%s port=%s workers=%s seq_len=%s concurrent_envs=%s",
+        SETTINGS.host,
+        port,
+        SETTINGS.workers,
+        SETTINGS.sequence_length,
+        SETTINGS.max_concurrent_envs,
+    )
+    uvicorn.run(app, host=host, port=port, workers=SETTINGS.workers)
 
 
 if __name__ == "__main__":

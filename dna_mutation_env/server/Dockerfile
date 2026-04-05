@@ -71,10 +71,19 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Set PYTHONPATH so imports work correctly
 ENV PYTHONPATH="/app/env:$PYTHONPATH"
 
+# Runtime defaults (can be overridden at deploy time)
+ENV DNA_ENV_HOST=0.0.0.0 \
+    DNA_ENV_PORT=8000 \
+    DNA_ENV_WORKERS=1 \
+    DNA_ENV_MAX_CONCURRENT_ENVS=8 \
+    DNA_ENV_SEQUENCE_LENGTH=10 \
+    DNA_ENV_MAX_STEPS=20 \
+    DNA_ENV_REVEAL_TARGET=true \
+    DNA_ENV_LOG_LEVEL=INFO
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8000/ready || exit 1
 
 # Run the FastAPI server
-# The module path is constructed to work with the /app/env structure
-CMD ["sh", "-c", "cd /app/env && uvicorn server.app:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "cd /app/env && python -m server.app --port ${DNA_ENV_PORT}"]
