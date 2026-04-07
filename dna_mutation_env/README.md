@@ -1,296 +1,175 @@
 ---
-title: DNA Mutation Env
+title: DNA Mutation OpenEnv
 emoji: "🧬"
 colorFrom: blue
 colorTo: green
 sdk: docker
 app_port: 8000
 pinned: false
+tags:
+  - openenv
+  - genomics
+  - bioinformatics
 ---
 
-# DNA Mutation Environment
+# DNA Mutation OpenEnv
 
-A production-oriented reinforcement learning environment built with `openenv-core` for sequence optimization tasks. The agent starts with a random DNA sequence and mutates it toward a target sequence, one position at a time.
+This project is now structured as a Meta OpenEnv-compatible genomic analysis environment. Instead of mutating a string toward a hidden target, the agent acts like a variant analyst: it inspects evidence, flags candidate mutations, categorizes them, and submits a final call.
 
-This project is designed for hackathon demos, RL experimentation, and lightweight bioinformatics workflows where discrete sequence editing is a natural action space.
+The layout has been cleaned up to remove duplicate deployment files. The project now uses:
 
-## Overview
+- one Docker build path: `Dockerfile`
+- one dependency source: `pyproject.toml`
+- one OpenEnv manifest: `openenv.yaml`
 
-At every episode reset, the environment generates:
+## Tasks
 
-- a random `N`-base `target_sequence` (`N` is configurable)
-- a random `N`-base `current_sequence`
+- `easy_snv_short_read`: single SNV in a short high-quality sequence
+- `medium_indel_low_coverage`: deletion detection with reduced local coverage
+- `hard_repeat_structural_variant`: structural/repetitive-region event with ambiguous evidence
 
-On each step, the agent submits:
+Each task is backed by a programmatic grader that returns a score in `[0.0, 1.0]`.
 
-- `position`: zero-based index to mutate
-- `new_base`: one of `A`, `T`, `C`, `G`
-- `reasoning`: free-text explanation for traceability
+## Core Architecture
 
-The environment then:
+- `models.py`: strict Pydantic models for `DnaMutationAction`, `DnaMutationObservation`, `DnaMutationReward`, and `VariantCall`
+- `tasks.py`: canonical easy/medium/hard task definitions
+- `graders.py`: task-specific scorers for SNVs, indels, and structural variants
+- `server/dna_mutation_env_environment.py`: OpenEnv environment with `reset(...)`, `step(action)`, and exported state
+- `server/app.py`: FastAPI/OpenEnv server wrapper
+- `baseline.py`: baseline evaluator using the OpenAI Python client with `HF_TOKEN`
 
-- updates the selected base in `current_sequence`
-- computes the Hamming distance to the target
-- returns a normalized reward based on sequence similarity
-- marks the episode complete when the sequences match exactly
-
-## Reward Function
-
-The reward is:
-
-```text
-reward = 1.0 - (distance / length)
-```
-
-For a sequence length of `10`:
-
-- distance `10` -> reward `0.0`
-- distance `5` -> reward `0.5`
-- distance `0` -> reward `1.0`
-
-## Environment Contract
-
-### Action
-
-`DnaMutationAction`
-
-- `position: int`
-- `new_base: Literal["A", "T", "C", "G"]`
-- `reasoning: str`
-
-### Observation
-
-`DnaMutationObservation`
-
-- `current_sequence: str`
-- `target_sequence: str`
-- `distance: int`
-- `reward: float`
-- `done: bool`
-- `metadata: dict`
-
-## Project Structure
+## Updated File Structure
 
 ```text
 dna_mutation_env/
 |-- __init__.py
+|-- baseline.py
 |-- client.py
+|-- Dockerfile
+|-- graders.py
+|-- inference.py
 |-- models.py
 |-- openenv.yaml
 |-- pyproject.toml
 |-- README.md
+|-- tasks.py
 |-- tests/
-|-- server/
-|   |-- __init__.py
-|   |-- app.py
-|   |-- config.py
-|   |-- dna_mutation_env_environment.py
-|   `-- Dockerfile
-`-- uv.lock
+|   |-- test_api.py
+|   `-- test_environment.py
+`-- server/
+    |-- __init__.py
+    |-- app.py
+    |-- config.py
+    `-- dna_mutation_env_environment.py
 ```
 
-## Installation
+## Observation, Action, Reward
 
-From the repository root:
+Observation includes:
 
-```bash
-cd dna_mutation_env
-uv sync
-```
+- `reference_sequence`
+- `observed_sequence`
+- `coverage`
+- `quality_scores`
+- `candidate_regions`
+- `prior_findings`
+- `reward_details`
 
-If you are using the workspace virtual environment directly:
+Actions include:
 
-```bash
-python -m pip install -e .
-```
+- `inspect_region`
+- `flag_snv`
+- `flag_indel`
+- `flag_structural_variant`
+- `categorize_variant`
+- `submit_answer`
+
+Reward logic provides partial credit for useful locus discovery and correct variant typing, and applies penalties for false positives and repeated looping actions.
+
+The public reward contract is bounded to `0.0` through `1.0`. Penalties reduce credit toward zero rather than producing negative scores, which keeps the environment validator- and leaderboard-friendly.
 
 ## Run Locally
 
-Start the FastAPI/OpenEnv server:
+Install:
 
 ```bash
 cd dna_mutation_env
-uv run server
+pip install -e .
 ```
 
-Or run Uvicorn directly:
+Start the environment server:
+
+```bash
+python -m server.app
+```
+
+Run the local heuristic smoke test:
+
+```bash
+python inference.py --task-id easy_snv_short_read
+```
+
+Run the OpenAI-compatible baseline:
+
+```bash
+set HF_TOKEN=your_token
+python baseline.py --model your-model-id --task-id medium_indel_low_coverage
+```
+
+If you need a custom OpenAI-compatible endpoint, set `OPENAI_BASE_URL`. By default the baseline uses `https://router.huggingface.co/v1`.
+
+## Baseline Scores
+
+Reference heuristic / expected baseline targets for the included synthetic tasks:
+
+- `easy_snv_short_read`: `1.00` with the exact locus and allele call
+- `medium_indel_low_coverage`: `1.00` with the exact deletion call
+- `hard_repeat_structural_variant`: `1.00` with the exact structural-variant span and allele call
+- `hard_repeat_structural_variant`: approximately `0.63` for a partial overlap / repeat-expansion style call, matching the current grader test fixture
+
+When you run `baseline.py`, record the exact model and date used for your hackathon submission since LLM-based baseline scores can vary by backend model.
+
+## Docker
+
+Build:
 
 ```bash
 cd dna_mutation_env
-uv run uvicorn dna_mutation_env.server.app:app --host 0.0.0.0 --port 8000 --reload
+docker build -t dna-mutation-openenv .
 ```
 
-Available endpoints typically include:
-
-- `POST /reset`
-- `POST /step`
-- `GET /state`
-- `GET /schema`
-- `GET /health`
-- `GET /ready`
-- `WS /ws`
-
-## Quick Start
-
-### 1. Run the Environment In-Process
-
-This is the fastest way to validate the environment logic during development.
-
-```python
-from dna_mutation_env.models import DnaMutationAction
-from dna_mutation_env.server.dna_mutation_env_environment import DnaMutationEnvironment
-
-env = DnaMutationEnvironment()
-observation = env.reset(seed=7)
-
-print("Target:", observation.target_sequence)
-print("Current:", observation.current_sequence)
-print("Distance:", observation.distance)
-
-action = DnaMutationAction(
-    position=0,
-    new_base=observation.target_sequence[0],
-    reasoning="Match the first base to reduce the distance.",
-)
-
-observation = env.step(action)
-print("Updated:", observation.current_sequence)
-print("Reward:", observation.reward)
-print("Done:", observation.done)
-```
-
-### 2. Connect to a Running Server
-
-```python
-from dna_mutation_env import DnaMutationAction, DnaMutationEnv
-
-client = DnaMutationEnv(base_url="http://localhost:8000").sync()
-
-with client:
-    result = client.reset(seed=7)
-    observation = result.observation
-
-    action = DnaMutationAction(
-        position=0,
-        new_base=observation.target_sequence[0],
-        reasoning="Align the first position with the target.",
-    )
-
-    result = client.step(action)
-    print(result.observation.current_sequence)
-    print(result.reward)
-    print(result.done)
-```
-
-## Smoke Test
-
-A simple smoke-test script is available at the repository root:
+Run:
 
 ```bash
-python inference.py
+docker run --rm -p 8000:8000 dna-mutation-openenv
 ```
 
-To test against a running server:
+## OpenEnv Metadata
 
-```bash
-python inference.py --base-url http://localhost:8000
+The environment manifest is stored in `openenv.yaml`:
+
+```yaml
+spec_version: 1
+name: dna_mutation_env
+type: space
+runtime: fastapi
+app: server.app:app
+port: 8000
 ```
 
-## Runtime Configuration
+## Hugging Face Spaces
 
-Server behavior is configurable through environment variables:
+This repo is ready for a Docker-based Space.
 
-- `DNA_ENV_SEQUENCE_LENGTH` (default: `10`)
-- `DNA_ENV_MAX_STEPS` (default: `2 * sequence_length`)
-- `DNA_ENV_MAX_CONCURRENT_ENVS` (default: `8`)
-- `DNA_ENV_REVEAL_TARGET` (default: `true`)
-- `DNA_ENV_LOG_LEVEL` (default: `INFO`)
-- `DNA_ENV_HOST` (default: `0.0.0.0`)
-- `DNA_ENV_PORT` (default: `8000`)
-- `DNA_ENV_WORKERS` (default: `1`)
+1. Push the `dna_mutation_env` directory to a Space repository.
+2. Keep the README front matter, `openenv.yaml`, and the root `Dockerfile` at the repo root.
+3. In the Space settings or repository metadata, include the `openenv` tag.
+4. Add `HF_TOKEN` as a secret if you want to run `baseline.py` inside the Space.
 
-Example:
-
-```bash
-DNA_ENV_SEQUENCE_LENGTH=20 DNA_ENV_REVEAL_TARGET=false uv run server
-```
-
-## Docker Build
-
-Build the environment image from the `dna_mutation_env` directory:
-
-```bash
-docker build -t dna-mutation-env:latest -f server/Dockerfile .
-```
-
-Run the container:
-
-```bash
-docker run --rm -p 8000:8000 dna-mutation-env:latest
-```
-
-## Deploy with OpenEnv
-
-The environment includes an `openenv.yaml` manifest and is structured for deployment as an OpenEnv-compatible FastAPI service.
-
-From the `dna_mutation_env` directory:
-
-```bash
-openenv push
-```
-
-Common options:
-
-```bash
-openenv push --private
-openenv push --repo-id <namespace>/<repo-name>
-```
-
-## Deployment Notes
-
-- Runtime: FastAPI
-- App entrypoint: `server.app:app`
-- Default port: `8000`
-- Manifest: `openenv.yaml`
-
-This makes the project suitable for:
-
-- Hugging Face Spaces
-- container-based demos
-- internal RL evaluation services
-- lightweight remote training environments
-
-## Development Notes
-
-The environment implementation lives in:
-
-- `models.py`
-- `server/dna_mutation_env_environment.py`
-- `server/app.py`
-
-The packaged client lives in:
-
-- `client.py`
-
-## Quality Gates
-
-Run checks locally:
+## Testing
 
 ```bash
 cd dna_mutation_env
-pip install -e ".[dev]"
-ruff check .
 pytest
 ```
-
-GitHub Actions CI runs lint and tests on Python 3.10-3.12 for every push/PR to `main`.
-
-## Security Notes
-
-- Keep secrets in local `.env` only; never commit `.env`.
-- Rotate any credential that was accidentally committed in the past.
-- For shared/public training settings, consider running with `DNA_ENV_REVEAL_TARGET=false`.
-
-## License
-
-This project inherits the repository licensing and upstream OpenEnv framework licensing where applicable.

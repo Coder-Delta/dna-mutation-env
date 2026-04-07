@@ -7,10 +7,11 @@
 """Dna Mutation Env Environment."""
 
 from .client import DnaMutationEnv
-from .models import DnaMutationAction, DnaMutationObservation
+from .models import DnaMutationAction, DnaMutationObservation, DnaMutationReward
 
 __all__ = [
     "DnaMutationAction",
     "DnaMutationObservation",
+    "DnaMutationReward",
     "DnaMutationEnv",
 ]

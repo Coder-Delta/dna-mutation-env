@@ -97,11 +97,11 @@ def main(host: str = SETTINGS.host, port: int = SETTINGS.port):
     import uvicorn
 
     LOGGER.info(
-        "Starting dna_mutation_env host=%s port=%s workers=%s seq_len=%s concurrent_envs=%s",
+        "Starting dna_mutation_env host=%s port=%s workers=%s default_task=%s concurrent_envs=%s",
         SETTINGS.host,
         port,
         SETTINGS.workers,
-        SETTINGS.sequence_length,
+        SETTINGS.default_task_id,
         SETTINGS.max_concurrent_envs,
     )
     uvicorn.run(app, host=host, port=port, workers=SETTINGS.workers)

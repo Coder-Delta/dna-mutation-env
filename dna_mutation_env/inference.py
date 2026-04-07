@@ -1,121 +1,60 @@
-"""Small smoke test for the DNA mutation environment.
-
-Usage:
-    python inference.py
-    python inference.py --base-url http://localhost:8000
-"""
+"""Simple heuristic smoke test for the genomic analysis environment."""
 
 from __future__ import annotations
 
 import argparse
-from typing import Optional
 
 try:
-    from dna_mutation_env import DnaMutationAction, DnaMutationEnv
+    from dna_mutation_env.models import DnaMutationAction
     from dna_mutation_env.server.dna_mutation_env_environment import DnaMutationEnvironment
+    from dna_mutation_env.tasks import TASK_ORDER, get_task
 except ModuleNotFoundError:
-    from client import DnaMutationEnv
     from models import DnaMutationAction
     from server.dna_mutation_env_environment import DnaMutationEnvironment
+    from tasks import TASK_ORDER, get_task
 
 
-def run_local_demo(seed: int) -> None:
-    """Run the environment directly in-process without a server."""
+def run_local_demo(seed: int, task_id: str) -> None:
+    """Run a deterministic local demo using the hidden task truth."""
     env = DnaMutationEnvironment()
-    observation = env.reset(seed=seed)
+    observation = env.reset(seed=seed, task_id=task_id)
+    truth = get_task(task_id).truth.model_dump()
 
-    print("--- Local DNA Mutation Task ---")
-    print(f"Target:  {observation.target_sequence}")
-    print(f"Current: {observation.current_sequence}")
-    print(f"Initial Distance: {observation.distance}")
-    print()
+    print(f"Task: {observation.task_id} ({observation.difficulty})")
+    print(observation.task_description)
+    print(f"Reference: {observation.reference_sequence}")
+    print(f"Observed:  {observation.observed_sequence}")
+    print(f"Candidate regions: {[region.model_dump() for region in observation.candidate_regions]}")
 
-    for index in range(min(3, len(observation.current_sequence))):
-        target_base = (
-            observation.target_sequence[index]
-            if observation.target_sequence
-            else observation.current_sequence[index]
+    inspect = env.step(
+        DnaMutationAction(
+            action_type="inspect_region",
+            locus=truth["locus"],
+            end=truth["end"],
+            reasoning="Inspect the highest-value candidate region first.",
         )
-        observation = env.step(
-            DnaMutationAction(
-                position=index,
-                new_base=target_base,
-                reasoning=f"Match the target base at index {index}.",
-            )
+    )
+    print(f"Inspect reward: {inspect.reward:.4f} -> {inspect.reward_details.explanation}")
+
+    submit = env.step(
+        DnaMutationAction(
+            action_type="submit_answer",
+            locus=truth["locus"],
+            end=truth["end"],
+            variant_type=truth["variant_type"],
+            ref_allele=truth["ref_allele"],
+            alt_allele=truth["alt_allele"],
+            confidence=0.99,
+            reasoning="Submit the variant call from the synthetic truth for validation.",
         )
-
-        print(f"Step {index + 1}: mutated index {index} to {target_base}")
-        print(f"Current: {observation.current_sequence}")
-        print(f"Reward: {observation.reward:.2f} | Distance: {observation.distance}")
-        print("-" * 30)
-
-        if observation.done:
-            break
-
-    print("Finished local smoke test.")
-
-
-def run_remote_demo(base_url: str, seed: int) -> None:
-    """Run the smoke test against a live OpenEnv server."""
-    client = DnaMutationEnv(base_url=base_url).sync()
-    with client:
-        result = client.reset(seed=seed)
-        observation = result.observation
-
-        print("--- Remote DNA Mutation Task ---")
-        print(f"Target:  {observation.target_sequence}")
-        print(f"Current: {observation.current_sequence}")
-        print(f"Initial Distance: {observation.distance}")
-        print()
-
-        for index in range(3):
-            target_base = (
-                observation.target_sequence[index]
-                if observation.target_sequence
-                else observation.current_sequence[index]
-            )
-            result = client.step(
-                DnaMutationAction(
-                    position=index,
-                    new_base=target_base,
-                    reasoning=f"Match the target base at index {index}.",
-                )
-            )
-            observation = result.observation
-
-            print(f"Step {index + 1}: mutated index {index} to {target_base}")
-            print(f"Current: {observation.current_sequence}")
-            print(f"Reward: {result.reward:.2f} | Distance: {observation.distance}")
-            print("-" * 30)
-
-            if result.done:
-                break
-
-    print("Finished remote smoke test.")
-
-
-def main(base_url: Optional[str], seed: int) -> None:
-    """Choose local or remote smoke test mode."""
-    if base_url:
-        run_remote_demo(base_url=base_url, seed=seed)
-        return
-
-    run_local_demo(seed=seed)
+    )
+    print(f"Final reward: {submit.reward:.4f}")
+    print(submit.reward_details.model_dump())
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Smoke test the DNA mutation environment.")
-    parser.add_argument(
-        "--base-url",
-        type=str,
-        default=None,
-        help="Optional OpenEnv server URL, for example http://localhost:8000",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=7,
-        help="Seed used for reproducible smoke tests.",
-    )
-    arguments = parser.parse_args()
-    main(base_url=arguments.base_url, seed=arguments.seed)
+    parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--task-id", choices=TASK_ORDER, default=TASK_ORDER[0])
+    args = parser.parse_args()
+    run_local_demo(seed=args.seed, task_id=args.task_id)
