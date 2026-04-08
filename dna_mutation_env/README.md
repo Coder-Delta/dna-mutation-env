@@ -162,16 +162,82 @@ port: 8000
 
 This repo is ready for a Docker-based Space.
 
-1. Create a new Hugging Face Space with SDK set to `Docker`.
-2. Set the GitHub Actions repository secrets:
-   `HF_SPACE_REPO`: `username/space-name`
-   `HF_TOKEN`: Hugging Face write token with access to that Space
-3. Push to `main` or run the `Deploy Hugging Face Space` workflow manually.
-4. Keep the README front matter, `openenv.yaml`, and the root `Dockerfile` at the Space repo root.
-5. In the Space settings or repository metadata, include the `openenv` tag.
-6. Add `HF_TOKEN` as a Space secret only if you want to run `baseline.py` inside the Space itself.
+Deploy directly with OpenEnv:
 
-The workflow syncs the contents of `dna_mutation_env/` to the target Space repository, so the Space root stays clean and matches Hugging Face's expected Docker layout.
+```bash
+cd dna_mutation_env
+openenv validate
+openenv push . --repo-id username/space-name
+```
+
+Notes:
+
+- create the Hugging Face Space with SDK set to `Docker`
+- keep the README front matter, `openenv.yaml`, and root `Dockerfile` in the pushed directory
+- add `HF_TOKEN` as a Space secret only if you want to run `baseline.py` inside the Space itself
+
+## Test In Hugging Face Space
+
+After deployment, test the live Space through its API endpoints.
+
+Open:
+
+- Space page: `https://huggingface.co/spaces/username/space-name`
+- Docs UI: `https://your-space-subdomain.hf.space/docs`
+- Health: `https://your-space-subdomain.hf.space/health`
+- Ready: `https://your-space-subdomain.hf.space/ready`
+- Schema: `https://your-space-subdomain.hf.space/schema`
+
+Recommended test flow:
+
+1. Open `/docs`
+2. Call `POST /reset`
+3. Call `POST /step` with an inspection action
+4. Call `POST /step` again with `submit_answer`
+5. Confirm the final response has `done: true`
+
+Example `POST /reset` body:
+
+```json
+{
+  "seed": 7,
+  "task_id": "easy_snv_short_read"
+}
+```
+
+Example inspection step:
+
+```json
+{
+  "action_type": "inspect_region",
+  "locus": 5,
+  "end": 5,
+  "reasoning": "Inspect the mismatch hotspot."
+}
+```
+
+Example final answer:
+
+```json
+{
+  "action_type": "submit_answer",
+  "locus": 5,
+  "end": 5,
+  "variant_type": "snv",
+  "ref_allele": "A",
+  "alt_allele": "G",
+  "confidence": 0.99,
+  "reasoning": "Submit the exact SNV call."
+}
+```
+
+Expected checks:
+
+- `/health` returns status `200`
+- `/ready` returns `{"status":"ready"}`
+- `/schema` returns the action and observation schema
+- `/reset` returns a task observation
+- `submit_answer` ends the episode with `done: true`
 
 ## Testing
 
