@@ -17,7 +17,7 @@ def test_reset_supports_task_selection() -> None:
 
 def test_incremental_reward_for_correct_inspection_and_submission() -> None:
     env = DnaMutationEnvironment()
-    obs = env.reset(seed=7, task_id="easy_snv_short_read")
+    env.reset(seed=7, task_id="easy_snv_short_read")
 
     inspect_obs = env.step(
         DnaMutationAction(
