@@ -19,12 +19,10 @@ def run_local_demo(seed: int, task_id: str) -> None:
     env = DnaMutationEnvironment()
     observation = env.reset(seed=seed, task_id=task_id)
     truth = get_task(task_id).truth.model_dump()
+    task_name = observation.task_id
+    step_count = 0
 
-    print(f"Task: {observation.task_id} ({observation.difficulty})")
-    print(observation.task_description)
-    print(f"Reference: {observation.reference_sequence}")
-    print(f"Observed:  {observation.observed_sequence}")
-    print(f"Candidate regions: {[region.model_dump() for region in observation.candidate_regions]}")
+    print(f"[START] task={task_name}", flush=True)
 
     inspect = env.step(
         DnaMutationAction(
@@ -34,7 +32,8 @@ def run_local_demo(seed: int, task_id: str) -> None:
             reasoning="Inspect the highest-value candidate region first.",
         )
     )
-    print(f"Inspect reward: {inspect.reward:.4f} -> {inspect.reward_details.explanation}")
+    step_count += 1
+    print(f"[STEP] step={step_count} reward={inspect.reward:.4f}", flush=True)
 
     submit = env.step(
         DnaMutationAction(
@@ -48,8 +47,9 @@ def run_local_demo(seed: int, task_id: str) -> None:
             reasoning="Submit the variant call from the synthetic truth for validation.",
         )
     )
-    print(f"Final reward: {submit.reward:.4f}")
-    print(submit.reward_details.model_dump())
+    step_count += 1
+    print(f"[STEP] step={step_count} reward={submit.reward:.4f}", flush=True)
+    print(f"[END] task={task_name} score={submit.reward:.4f} steps={step_count}", flush=True)
 
 
 if __name__ == "__main__":
