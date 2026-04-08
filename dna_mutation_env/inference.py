@@ -17,25 +17,21 @@ except ModuleNotFoundError:
 def run_local_demo(seed: int, task_id: str) -> None:
     """Run a deterministic local demo using the hidden task truth."""
     env = DnaMutationEnvironment()
-    observation = env.reset(seed=seed, task_id=task_id)
+    env.reset(seed=seed, task_id=task_id)
     truth = get_task(task_id).truth.model_dump()
-    task_name = observation.task_id
+    task_name = "dna-mutation"
     step_count = 0
+    total_score = 0.0
 
     print(f"[START] task={task_name}", flush=True)
 
-    inspect = env.step(
+    actions = [
         DnaMutationAction(
             action_type="inspect_region",
             locus=truth["locus"],
             end=truth["end"],
             reasoning="Inspect the highest-value candidate region first.",
-        )
-    )
-    step_count += 1
-    print(f"[STEP] step={step_count} reward={inspect.reward:.4f}", flush=True)
-
-    submit = env.step(
+        ),
         DnaMutationAction(
             action_type="submit_answer",
             locus=truth["locus"],
@@ -45,11 +41,16 @@ def run_local_demo(seed: int, task_id: str) -> None:
             alt_allele=truth["alt_allele"],
             confidence=0.99,
             reasoning="Submit the variant call from the synthetic truth for validation.",
-        )
-    )
-    step_count += 1
-    print(f"[STEP] step={step_count} reward={submit.reward:.4f}", flush=True)
-    print(f"[END] task={task_name} score={submit.reward:.4f} steps={step_count}", flush=True)
+        ),
+    ]
+
+    for action in actions:
+        result = env.step(action)
+        step_count += 1
+        total_score += result.reward
+        print(f"[STEP] step={step_count} reward={result.reward:.4f}", flush=True)
+
+    print(f"[END] task={task_name} score={total_score:.4f} steps={step_count}", flush=True)
 
 
 if __name__ == "__main__":
