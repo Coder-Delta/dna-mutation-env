@@ -162,10 +162,16 @@ port: 8000
 
 This repo is ready for a Docker-based Space.
 
-1. Push the `dna_mutation_env` directory to a Space repository.
-2. Keep the README front matter, `openenv.yaml`, and the root `Dockerfile` at the repo root.
-3. In the Space settings or repository metadata, include the `openenv` tag.
-4. Add `HF_TOKEN` as a secret if you want to run `baseline.py` inside the Space.
+1. Create a new Hugging Face Space with SDK set to `Docker`.
+2. Set the GitHub Actions repository secrets:
+   `HF_SPACE_REPO`: `username/space-name`
+   `HF_TOKEN`: Hugging Face write token with access to that Space
+3. Push to `main` or run the `Deploy Hugging Face Space` workflow manually.
+4. Keep the README front matter, `openenv.yaml`, and the root `Dockerfile` at the Space repo root.
+5. In the Space settings or repository metadata, include the `openenv` tag.
+6. Add `HF_TOKEN` as a Space secret only if you want to run `baseline.py` inside the Space itself.
+
+The workflow syncs the contents of `dna_mutation_env/` to the target Space repository, so the Space root stays clean and matches Hugging Face's expected Docker layout.
 
 ## Testing
 

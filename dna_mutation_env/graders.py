@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from .models import TaskSpec, VariantCall
+try:
+    from .models import TaskSpec, VariantCall
+except ImportError:
+    from models import TaskSpec, VariantCall
 
 
 def _safe_ratio(value: float) -> float:

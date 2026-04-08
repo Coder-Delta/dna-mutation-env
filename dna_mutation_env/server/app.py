@@ -71,6 +71,19 @@ async def value_error_handler(_: Request, exc: ValueError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
+@app.get("/")
+async def root() -> dict[str, object]:
+    """Human-friendly landing endpoint for Hugging Face Spaces."""
+    return {
+        "name": "DNA Mutation OpenEnv",
+        "status": "running",
+        "docs_url": "/docs",
+        "schema_url": "/schema",
+        "health_url": "/health",
+        "ready_url": "/ready",
+    }
+
+
 @app.get("/ready")
 async def readiness() -> dict[str, str]:
     """Readiness probe endpoint for orchestrators like Kubernetes."""

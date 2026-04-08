@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from .models import CandidateRegion, TaskSpec, VariantCall
+try:
+    from .models import CandidateRegion, TaskSpec, VariantCall
+except ImportError:
+    from models import CandidateRegion, TaskSpec, VariantCall
 
 
 TASKS: dict[str, TaskSpec] = {

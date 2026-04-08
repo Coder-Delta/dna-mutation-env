@@ -3,6 +3,14 @@ from fastapi.testclient import TestClient
 from dna_mutation_env.server.app import app
 
 
+def test_root_endpoint() -> None:
+    client = TestClient(app)
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json()["name"] == "DNA Mutation OpenEnv"
+    assert response.json()["docs_url"] == "/docs"
+
+
 def test_ready_endpoint() -> None:
     client = TestClient(app)
     response = client.get("/ready")
