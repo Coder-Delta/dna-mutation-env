@@ -7,6 +7,16 @@ def test_root_endpoint() -> None:
     client = TestClient(app)
     response = client.get("/")
     assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "DNA Mutation OpenEnv" in response.text
+    assert "Compact Dark UI" in response.text
+    assert 'id="reset-btn"' in response.text
+
+
+def test_app_info_endpoint() -> None:
+    client = TestClient(app)
+    response = client.get("/app-info")
+    assert response.status_code == 200
     assert response.json()["name"] == "DNA Mutation OpenEnv"
     assert response.json()["docs_url"] == "/docs"
 
