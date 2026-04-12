@@ -23,7 +23,7 @@ action_type, locus, end, variant_type, ref_allele, alt_allele, confidence, reaso
 Prefer inspect_region before a final answer when evidence is ambiguous.
 """.strip()
 
-HF_DEFAULT_BASE_URL = "https://router.huggingface.co/v1"
+
 
 
 def _extract_json(content: str) -> str:
@@ -37,27 +37,11 @@ def _extract_json(content: str) -> str:
 
 
 def build_client() -> OpenAI:
-    """Create an OpenAI-compatible client from hackathon or Hugging Face env vars."""
-    try:
-        api_key = os.environ["API_KEY"]
-    except KeyError:
-        api_key = os.getenv("HF_TOKEN")
-
-    if not api_key:
-        raise RuntimeError(
-            "API_KEY must be set before running baseline.py "
-            "(or HF_TOKEN for the Hugging Face fallback)."
-        )
-
-    try:
-        base_url = os.environ["API_BASE_URL"]
-    except KeyError:
-        base_url = os.getenv("OPENAI_BASE_URL") or HF_DEFAULT_BASE_URL
-
-    try:
-        return OpenAI(api_key=api_key, base_url=base_url)
-    except Exception as exc:
-        raise RuntimeError("Failed to initialize the OpenAI client from environment variables.") from exc
+    """Create an OpenAI-compatible client from hackathon env vars."""
+    return OpenAI(
+        api_key=os.environ["API_KEY"],
+        base_url=os.environ["API_BASE_URL"]
+    )
 
 
 def choose_action(
