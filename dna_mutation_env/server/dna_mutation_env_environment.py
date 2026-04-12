@@ -8,6 +8,7 @@ from collections import Counter
 from typing import Any, Optional
 from uuid import uuid4
 
+from fastmcp import FastMCP
 from openenv.core.env_server.interfaces import Environment
 from openenv.core.env_server.types import State
 
@@ -52,6 +53,7 @@ class DnaMutationEnvironment(Environment):
         self._action_counter: Counter[str] = Counter()
         self._completed = False
         self._last_reward = self._empty_reward("Environment initialized.")
+        self.mcp_server = self._build_mcp_server()
         self._sync_state_fields()
 
     def _empty_reward(self, explanation: str) -> DnaMutationReward:
@@ -179,6 +181,74 @@ class DnaMutationEnvironment(Environment):
                 "difficulty": self._task.difficulty,
             },
         )
+
+    def _serialize_observation(self, observation: DnaMutationObservation) -> dict[str, Any]:
+        """Return a JSON-serializable observation payload for MCP tools."""
+        return observation.model_dump(mode="json")
+
+    def _serialize_step_result(self, observation: DnaMutationObservation) -> dict[str, Any]:
+        """Mirror the REST step envelope for MCP tool callers."""
+        return {
+            "observation": self._serialize_observation(observation),
+            "reward": observation.reward,
+            "done": observation.done,
+        }
+
+    def _build_mcp_server(self) -> FastMCP:
+        """Expose a minimal MCP tool surface so LLM clients can discover and call the env."""
+        mcp = FastMCP("dna_mutation_env")
+
+        @mcp.tool()
+        def reset_episode(
+            task_id: str | None = None,
+            difficulty: str | None = None,
+            seed: int | None = None,
+        ) -> dict[str, Any]:
+            """Reset the environment and return the first observation."""
+            kwargs: dict[str, Any] = {}
+            if task_id is not None:
+                kwargs["task_id"] = task_id
+            if difficulty is not None:
+                kwargs["difficulty"] = difficulty
+            observation = self.reset(seed=seed, **kwargs)
+            return {"observation": self._serialize_observation(observation)}
+
+        @mcp.tool()
+        def get_observation() -> dict[str, Any]:
+            """Return the latest observation without taking a new action."""
+            return {"observation": self._serialize_observation(self._build_observation())}
+
+        @mcp.tool()
+        def get_state() -> dict[str, Any]:
+            """Return the current internal environment state."""
+            return self.state.model_dump(mode="json")
+
+        @mcp.tool()
+        def take_action(
+            action_type: str,
+            locus: int | None = None,
+            end: int | None = None,
+            variant_type: str | None = None,
+            ref_allele: str | None = None,
+            alt_allele: str | None = None,
+            confidence: float = 0.5,
+            reasoning: str = "Inspect the available evidence.",
+        ) -> dict[str, Any]:
+            """Execute one environment action and return observation, reward, and done."""
+            action = DnaMutationAction(
+                action_type=action_type,
+                locus=locus,
+                end=end,
+                variant_type=variant_type,
+                ref_allele=ref_allele,
+                alt_allele=alt_allele,
+                confidence=confidence,
+                reasoning=reasoning,
+            )
+            observation = self.step(action)
+            return self._serialize_step_result(observation)
+
+        return mcp
 
     def reset(
         self,
