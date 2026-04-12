@@ -1,4 +1,4 @@
-"""Baseline evaluator that uses an OpenAI-compatible client with HF_TOKEN."""
+"""Baseline evaluator that uses an OpenAI-compatible client from env config."""
 
 from __future__ import annotations
 
@@ -23,6 +23,8 @@ action_type, locus, end, variant_type, ref_allele, alt_allele, confidence, reaso
 Prefer inspect_region before a final answer when evidence is ambiguous.
 """.strip()
 
+HF_DEFAULT_BASE_URL = "https://router.huggingface.co/v1"
+
 
 def _extract_json(content: str) -> str:
     """Strip simple Markdown fences from model output."""
@@ -35,13 +37,27 @@ def _extract_json(content: str) -> str:
 
 
 def build_client() -> OpenAI:
-    """Create an OpenAI-compatible client using Hugging Face credentials."""
-    hf_token = os.getenv("HF_TOKEN")
-    if not hf_token:
-        raise RuntimeError("HF_TOKEN must be set before running baseline.py")
+    """Create an OpenAI-compatible client from hackathon or Hugging Face env vars."""
+    try:
+        api_key = os.environ["API_KEY"]
+    except KeyError:
+        api_key = os.getenv("HF_TOKEN")
 
-    base_url = os.getenv("OPENAI_BASE_URL", "https://router.huggingface.co/v1")
-    return OpenAI(api_key=hf_token, base_url=base_url)
+    if not api_key:
+        raise RuntimeError(
+            "API_KEY must be set before running baseline.py "
+            "(or HF_TOKEN for the Hugging Face fallback)."
+        )
+
+    try:
+        base_url = os.environ["API_BASE_URL"]
+    except KeyError:
+        base_url = os.getenv("OPENAI_BASE_URL") or HF_DEFAULT_BASE_URL
+
+    try:
+        return OpenAI(api_key=api_key, base_url=base_url)
+    except Exception as exc:
+        raise RuntimeError("Failed to initialize the OpenAI client from environment variables.") from exc
 
 
 def choose_action(
